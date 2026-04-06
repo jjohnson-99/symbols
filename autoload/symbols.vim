@@ -19,7 +19,7 @@
 "	name: (identifier) @function_name)]
 
 function! LuaTest(buf) abort
-    echom luaeval('require("backend").getSymbolsTree()')
+    echom luaeval('require("backend").getSymbols()')
 endfunction
 "
 "for id, node, metadata, match in query:iter_captures(tree:root(), bufnr, first, last) do
@@ -302,7 +302,7 @@ function! symbols#SymbolsToggle() abort
         let t:symbols = s:new(s:symbols)
     endif
 
-    "call LuaTest(t:bufnumber)
+    call LuaTest(t:bufnumber)
     call t:symbols.Toggle()
     "try
     "    " call s:log(">>> SymbolsToggle()")
