@@ -19,7 +19,7 @@
 "	name: (identifier) @function_name)]
 
 function! LuaTest(buf) abort
-    echom luaeval('require("backend").getSymbols()')
+    echom luaeval('require("backend").get_symbols_tree()')
 endfunction
 "
 "for id, node, metadata, match in query:iter_captures(tree:root(), bufnr, first, last) do
