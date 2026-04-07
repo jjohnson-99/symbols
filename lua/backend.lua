@@ -1,88 +1,112 @@
 -- lua/backend.lua
 local M = {}
 
-local ts = vim.treesitter
+-- TYPE_MAP is temporary since adheres only to Python naming
+local TYPE_MAP = {
+  ["class"] = "class",
+  ["function"] = "def",
+  ["method"] = "def",
+  ["struct"] = "struct",
+  ["enum"] = "enum",
+  ["union"] = "union",
+}
 
-local bufnr = vim.api.nvim_get_current_buf()
 
-local function get_indent(node)
-    local _, start_col = node:start()
-    return start_col
+local function get_range(node)
+    local r1, c1, r2, c2 = node:range()
+    return {r1, c1, r2, c2}
 end
 
-local function get_text(node, bufnr)
-  return ts.get_node_text(node, bufnr)
+
+local function contains(a, b)
+  if a[1] > b[1] or a[3] < b[3] then return false end
+  if a[1] == b[1] and a[2] > b[2] then return false end
+  if a[3] == b[3] and a[4] < b[4] then return false end
+  return true
 end
 
 
-local query = vim.treesitter.query.parse('python', [[
-                    ; query
-                    (class_definition
-                        name: (identifier) @class.name
-                        body: (block
-                            (function_definition
-                                name: (identifier) @method.name
-                            ) @method
-                        )
-                    ) @class
-                    (module
-                        (function_definition
-                            name: (identifier) @function.name
-                        ) @function
-                    )
-                    ]])
+local function get_indent(col)
+  local shiftwidth = vim.bo.shiftwidth > 0 and vim.bo.shiftwidth or 2
+  return math.floor(col / shiftwidth)
+end
 
 
--- python is currently hardcoded, will eventually work for languages supported by treesitter
--- query is currently hardcoded, will eventually be customizable per language
-function M.getSymbols()
+local function collect_symbols_flat(query, root, bufnr)
+    local symbols = {}
 
-    local tree = ts.get_parser():parse()[1]
-    local results = {}
-
-    for _, match, _ in query:iter_matches(tree:root(), bufnr) do
-        local entry = nil
-
+    for _, match, _ in query:iter_matches(root, bufnr) do
         for id, nodes in pairs(match) do
-            local name = query.captures[id]
+            local capture = query.captures[id]
             local node = nodes[1]
 
-            if name == "class.name" then
-                entry = {
-                    type = "class",
-                    name = get_text(node, bufnr),
-                    indent = get_indent(node),
-                    row = select(1, node:range()) + 1,
-                }
+            local kind = capture:match("^([%w_]+)%.name$")
+            if kind and TYPE_MAP[kind] then
+                local row, col = node:start()
 
-            elseif name == "method.name" then
-                entry = {
-                    type = "def",
-                    name = get_text(node, bufnr),
-                    indent = get_indent(node),
-                    row = select(1, node:range()) + 1,
-                }
-
-            elseif name == "function.name" then
-                entry = {
-                    type = "def",
-                    name = get_text(node, bufnr),
-                    indent = get_indent(node),
-                    row = select(1, node:range()) + 1,
-                }
+                table.insert(symbols, {
+                    type = TYPE_MAP[kind],
+                    name = vim.treesitter.get_node_text(node, bufnr),
+                    range = get_range(node:parent()),
+                    row = row + 1,
+                    indent = get_indent(col),
+                    children = {}
+                })
             end
-        end
-
-        if entry then
-            table.insert(results, entry)
         end
     end
 
-    vim.print(results)
-    --return results
+    vim.print(symbols)
+    return symbols
+end
 
+
+local function build_tree(symbols)
+    table.sort(symbols, function(a, b)
+        if a.range[1] == b.range[1] then
+            return a.range[2] < b.range[2]
+        end
+        return a.range[1] < b.range[1]
+    end)
+
+    local root = {}
+
+    for i, sym in ipairs(symbols) do
+        local parent = nil
+
+        -- find closest enclosing parent
+        for j = i - 1, 1, -1 do
+            local candidate = symbols[j]
+            if contains(candidate.range, sym.range) then
+                parent = candidate
+                break
+            end
+        end
+
+        if parent then
+            table.insert(parent.children, sym)
+        else
+            table.insert(root, sym)
+        end
+    end
+
+    return root
+end
+
+
+function M.get_symbols_tree()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local parser = vim.treesitter.get_parser(bufnr)
+    local tree = parser:parse()[1]
+    local root = tree:root()
+    local lang = parser:lang()
+
+    local query = vim.treesitter.query.get(lang, "symbols")
+    if not query then return {} end
+
+    local flat = collect_symbols_flat(query, root, bufnr)
+    return build_tree(flat)
 end
 
 return M
 
---vim.print({name, node:type(), vim.treesitter.get_node_text(node, vim.api.nvim_get_current_buf())})
