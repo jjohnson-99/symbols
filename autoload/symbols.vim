@@ -115,18 +115,19 @@ function! s:symbols.Init() abort
     " let self.diffmark = -1 " Marker for the diff view
     let self.targetid = -1
     let self.targetBufnr = -1
+    let self.rawtree = []
+    let self.tree = []
+
+    let self.symbolstree = [] "output data.
 
     let self.showHelp = 0
 endfunction
 
 
 "function! s:symbols.BindKey() abort
+"
 "endfunction
-"
-"
-"...
-"
-"
+
 
 function! s:symbols.BindAu() abort
     " Auto exit if it's the last window
@@ -135,6 +136,13 @@ function! s:symbols.BindAu() abort
         au BufEnter <buffer> call s:exitIfLast()
     augroup end
 endfunction
+
+"function! s:symbols.Action(action) abort
+"
+"endfunction
+"
+"Action functions
+"
 
 function! s:symbols.SetTargetFocus() abort
     for winnr in range(1, winnr('$')) " winnr starts from 1
@@ -161,7 +169,7 @@ function! s:symbols.Toggle() abort
         augroup END
     else
         call self.Show()
-       " if !g:symbols_SetFocusWhenToggle
+       " if !g:symbols_SetFocusWhenToggle " need to define globals
        "     call self.SetTargetFocus()
        " endif
        augroup Symbols
@@ -204,13 +212,19 @@ function! s:symbols.Show() abort
     " ...
     "
 
+    " Make :q call ActionClose
+    "cabbrev <silent><buffer> q :call t:undotree.ActionClose()<CR>
+    "call self.BindKey()
     call self.BindAu()
+
+    let ei_bak= &eventignore
+    set eventignore=all
 
     call self.SetTargetFocus()
     let self.targetBufnr = -1
-    " write update to echom the current language. Guard around nonsuitable
-    " buffers
     call self.Update()
+
+    let &eventignore = ei_bak
 endfunction
 
 
@@ -223,10 +237,10 @@ function! s:symbols.Update() abort
     if exists('b:isSymbolsBuffer')
         return
     endif
-    " options and stuff
 
-    " bt ~ buftype, <empty> ~ normal buffer,
-    " acwrite ~ buffer will always be written with BufWriteCmd
+    " disable symbols for chosen buftypes/filetypes
+
+    " bt ~ buftype, <empty> ~ normal buffer, acwrite ~ buffer will always be written with BufWriteCmd
     if (&bt != '' && &bt != 'acwrite') || (&modifiable == 0) || (mode() != 'n')
         if self.targetBufnr == bufnr('%') && self.targetid == w:symbols_id
             "call s:log("symbols.Update() invalid buffer NOupdate")
@@ -235,22 +249,66 @@ function! s:symbols.Update() abort
         let emptybuf = 1 "This is not a valid buffer, could be help or something.
         "call s:log("symbols.Update() invalid buffer update")
     else
-        let emptybuf = 0
-        "update symbols, set focus
-        "if self.targetBufnr == bufnr('%')
-        "    let self.targetid = w:symbols_id
+        let emptybuf = 0 "Valid buffer
     endif
 
-    " buffer is valid?
-    " only getTree if in valid languages
     let self.targetBufnr = bufnr('%')
     let self.targetid = w:symbols_id
-
     echom &filetype
+
+    if emptybuf " Show an empty undo tree instead of do nothing.
+        "let self.rawtree = {'seq_last':0,'entries':[],'time_cur':0,'save_last':0,'synced':1,'save_cur':0,'seq_cur':0}
+    else
+        let newsymbolstree = luaeval('require("backend").get_symbols_tree()')
+        echom newsymbolstree
+        if self.rawtree == newsymbolstree
+            return
+        endif
+    endif
+
+    " drawing logic
+    "call self.ConvertInput(1) "update all.
+    "call self.Render()
+    "call self.SetFocus()
+    "call self.Draw()
+
     " echom self.targetBufnr " above manages which is target window
 
 endfunction
 
+
+function! s:symbols.Index2Screen(index) abort
+    return
+endfunction
+
+function! s:symbols.Screen2Index(index) abort
+    return
+endfunction
+
+" Current window must be symbols.
+function! s:symbols.Draw() abort
+    " remember the current cursor position.
+    let savedview = winsaveview()
+
+    setlocal modifiable
+    " Delete text into blackhole register.
+    call s:exec('1,$ d _')
+    call append(0,self.symbolstree)
+
+    "remove the last empty line
+    call s:exec('$d _')
+
+    " restore previous cursor position.
+    call winrestview(savedview)
+
+    setlocal nomodifiableendfunction
+endfunction
+
+" in undotree, does self.tree -> self.asciitree
+" while Draw displays self.asciitree
+function! s:symbols.Render() abort
+
+endfunction
 
 "=================================================
 
@@ -302,7 +360,7 @@ function! symbols#SymbolsToggle() abort
         let t:symbols = s:new(s:symbols)
     endif
 
-    call LuaTest(t:bufnumber)
+    "call LuaTest(t:bufnumber)
     call t:symbols.Toggle()
     "try
     "    " call s:log(">>> SymbolsToggle()")

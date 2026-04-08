@@ -4,19 +4,17 @@ local M = {}
 -- TYPE_MAP is temporary since adheres only to Python naming
 local TYPE_MAP = {
   ["class"] = "class",
-  ["function"] = "def",
-  ["method"] = "def",
+  ["function"] = "func",
+  ["method"] = "func",
   ["struct"] = "struct",
   ["enum"] = "enum",
   ["union"] = "union",
 }
 
-
 local function get_range(node)
     local r1, c1, r2, c2 = node:range()
     return {r1, c1, r2, c2}
 end
-
 
 local function contains(a, b)
   if a[1] > b[1] or a[3] < b[3] then return false end
@@ -25,12 +23,10 @@ local function contains(a, b)
   return true
 end
 
-
 local function get_indent(col)
   local shiftwidth = vim.bo.shiftwidth > 0 and vim.bo.shiftwidth or 2
   return math.floor(col / shiftwidth)
 end
-
 
 local function collect_symbols_flat(query, root, bufnr)
     local symbols = {}
@@ -47,19 +43,18 @@ local function collect_symbols_flat(query, root, bufnr)
                 table.insert(symbols, {
                     type = TYPE_MAP[kind],
                     name = vim.treesitter.get_node_text(node, bufnr),
-                    range = get_range(node:parent()),
+                    range = get_range(node:parent()), -- node is just the name so node:parent() is the declaration itself
                     row = row + 1,
-                    indent = get_indent(col),
+                    indent = get_indent(col), -- consider removing col/indent and handle scope when walking tree
                     children = {}
                 })
             end
         end
     end
 
-    vim.print(symbols)
+    --vim.print(symbols)
     return symbols
 end
-
 
 local function build_tree(symbols)
     table.sort(symbols, function(a, b)
@@ -75,6 +70,10 @@ local function build_tree(symbols)
         local parent = nil
 
         -- find closest enclosing parent
+        -- consider using .is_ancestor(candidate, sym), requires backtracking for deep nestings
+        -- could not get .is_ancestor to work, but I think I know the problem
+        -- can use a stack to check/build tree, would remove need for range
+        -- is this implementation worth the time complexity?
         for j = i - 1, 1, -1 do
             local candidate = symbols[j]
             if contains(candidate.range, sym.range) then
@@ -92,7 +91,6 @@ local function build_tree(symbols)
 
     return root
 end
-
 
 function M.get_symbols_tree()
     local bufnr = vim.api.nvim_get_current_buf()
