@@ -6,10 +6,10 @@
 
 
 " Avoid installing twice.
-" if exists('g:autoloaded_symbols')
-"    finish
-" endif
-" let g:autoloaded_symbols = 0
+if exists('g:autoloaded_symbols')
+    finish
+endif
+let g:autoloaded_symbols = 0
 
 " load language and language parameters
 
@@ -18,9 +18,6 @@
 "(function_definition
 "	name: (identifier) @function_name)]
 
-function! LuaTest(buf) abort
-    echom luaeval('require("backend").get_symbols_tree()')
-endfunction
 "
 "for id, node, metadata, match in query:iter_captures(tree:root(), bufnr, first, last) do
 "  local name = query.captures[id] -- name of the capture in the query
@@ -68,7 +65,6 @@ function! s:panel.Init() abort
 endfunction
 
 function! s:panel.SetFocus() abort
-    echom self.bufname
     let winnr = bufwinnr(self.bufname)
     " already focused.
     if winnr == winnr()
@@ -110,23 +106,38 @@ let s:symbols = s:new(s:panel)
 
 function! s:symbols.Init() abort
     let self.bufname = "symbols_".s:getUniqueID()
-    let self.width = g:symbols_SplitWidth
-    " let self.opendiff = g:symbols_DiffAutoOpen
-    " let self.diffmark = -1 " Marker for the diff view
+    let self.width = g:symbols_SplitWidth " leave as is, shortdisplay should change in other file
     let self.targetid = -1
     let self.targetBufnr = -1
-    let self.rawtree = []
-    let self.tree = []
 
     let self.symbolstree = [] "output data.
+    let self.linedata = []
+    let self.hlmatchid = -1
 
     let self.showHelp = 0
 endfunction
 
 
-"function! s:symbols.BindKey() abort
-"
-"endfunction
+" from claude
+function! s:symbols.BindKey() abort "undotree has call in
+    nnoremap <silent><buffer> <CR> :call t:symbols.JumpToSymbol()<CR>
+endfunction
+
+
+function! s:symbols.JumpToSymbol() abort
+    let idx = line('.') - 1
+    if idx < 0 || idx >= len(self.linedata)
+        return
+    endif
+    let targetrow = self.linedata[idx]
+    if !self.SetTargetFocus()
+        return
+    endif
+    call cursor(targetrow, 1)
+    call s:exec_silent("norm! zz")
+    "call self.SetFocus()
+    "Figure out how to keep the cursor in target as well
+endfunction
 
 
 function! s:symbols.BindAu() abort
@@ -134,8 +145,10 @@ function! s:symbols.BindAu() abort
     augroup Symbols_Main
         au!
         au BufEnter <buffer> call s:exitIfLast()
+        "au CursorMoved <buffer> call t:symbols.UpdateCursorHL()
     augroup end
 endfunction
+
 
 "function! s:symbols.Action(action) abort
 "
@@ -159,10 +172,14 @@ endfunction
 " au handles automatic updating
 function! s:symbols.Toggle() abort
     " Global auto commands to keep symbols panel up to date
-    let auEvents = "BufEnter,InsertLeave" ",CursorMoved,BufWritePost"
+    let auEvents = "BufEnter,InsertLeave,CursorMoved" ",CursorMoved,BufWritePost"
     " call s:log(self.bufname." Toggle()")
     if self.IsVisible()
         call self.Hide()
+        "claude
+        "let self.rawtree = []
+        "let self.hlmatchid = -1
+        "endclaude
         call self.SetTargetFocus()
         augroup Symbols
             autocmd!
@@ -208,13 +225,20 @@ function! s:symbols.Show() abort
     setlocal nospell
     setlocal nonumber
     setlocal norelativenumber
+    if g:undotree_CursorLine
+        setlocal cursorline
+    else
+        setlocal nocursorline
+    endif
+    setlocal nomodifiable
+    setfiletype symbols
 
     " ...
     "
 
     " Make :q call ActionClose
     "cabbrev <silent><buffer> q :call t:undotree.ActionClose()<CR>
-    "call self.BindKey()
+    call self.BindKey()
     call self.BindAu()
 
     let ei_bak= &eventignore
@@ -254,32 +278,32 @@ function! s:symbols.Update() abort
 
     let self.targetBufnr = bufnr('%')
     let self.targetid = w:symbols_id
-    echom &filetype
 
     if emptybuf " Show an empty undo tree instead of do nothing.
         "let self.rawtree = {'seq_last':0,'entries':[],'time_cur':0,'save_last':0,'synced':1,'save_cur':0,'seq_cur':0}
+        let displaylist = []
     else
-        let newsymbolstree = luaeval('require("backend").get_symbols_tree()')
-        echom newsymbolstree
-        if self.rawtree == newsymbolstree
-            return
-        endif
+        let displaylist = luaeval('require("backend").get_display_list()')
     endif
+    echom displaylist
 
+    let self.symbolstree = []
+    let self.linedata = []
+    for item in displaylist
+        call add(self.symbolstree, item.text)
+        call add(self.linedata, item.row)
+    endfor
+
+    echom displaylist
+    echom self.symbolstree
+    echom self.linedata
     " drawing logic
-    "call self.ConvertInput(1) "update all.
-    "call self.Render()
-    "call self.SetFocus()
-    "call self.Draw()
-
+    call self.SetFocus()
+    call self.Draw()
     " echom self.targetBufnr " above manages which is target window
 
 endfunction
 
-
-function! s:symbols.Index2Screen(index) abort
-    return
-endfunction
 
 function! s:symbols.Screen2Index(index) abort
     return
@@ -301,14 +325,11 @@ function! s:symbols.Draw() abort
     " restore previous cursor position.
     call winrestview(savedview)
 
-    setlocal nomodifiableendfunction
+    setlocal nomodifiable
 endfunction
 
 " in undotree, does self.tree -> self.asciitree
 " while Draw displays self.asciitree
-function! s:symbols.Render() abort
-
-endfunction
 
 "=================================================
 
@@ -327,8 +348,6 @@ endfunction
 "=================================================
 " User command functions
 " called outside symbols window
-
-echom "Autoloading..."
 
 function! symbols#SymbolsUpdate() abort
     if !exists('t:symbols')
@@ -360,7 +379,6 @@ function! symbols#SymbolsToggle() abort
         let t:symbols = s:new(s:symbols)
     endif
 
-    "call LuaTest(t:bufnumber)
     call t:symbols.Toggle()
     "try
     "    " call s:log(">>> SymbolsToggle()")
@@ -386,5 +404,4 @@ endfunction
 function! symbols#Hello() abort
     echo "Hi"
 endfunction
-echom "Done loading..."
 

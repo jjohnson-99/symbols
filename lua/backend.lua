@@ -106,5 +106,35 @@ function M.get_symbols_tree()
     return build_tree(flat)
 end
 
+
+-- col 1: ⌄ U+2304 (unfolded), › U+203A (folded), or space
+-- col 2: space separator (always)
+-- col 3+: [depth * indent_len spaces]type name
+local CHEVRON_OPEN   = "\xe2\x8c\x84"  -- ⌄
+local CHEVRON_CLOSED = "\xe2\x80\xba"  -- ›
+
+local function format_node(node, depth, results, indent_len)
+    local chevron = (#node.children > 0) and CHEVRON_OPEN or " "
+    local indent  = string.rep(" ", depth * indent_len)
+    table.insert(results, {
+        text = chevron .. " " .. indent .. node.type .. " " .. node.name,
+        row  = node.row,
+    })
+    for _, child in ipairs(node.children) do
+        format_node(child, depth + 1, results, indent_len)
+    end
+end
+
+function M.get_display_list()
+    local tree       = M.get_symbols_tree()
+    local results    = {}
+    local indent_len = vim.g.symbols_IndentLength or 2
+    for _, node in ipairs(tree) do
+        format_node(node, 0, results, indent_len)
+    end
+    return results
+end
+
+
 return M
 

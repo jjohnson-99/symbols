@@ -14,7 +14,16 @@ let g:loaded_symbols = 0
 "=================================================
 " symbols window width
 if !exists('g:symbols_SplitWidth')
-    let g:symbols_SplitWidth = 24
+    let g:symbols_SplitWidth = 30
+endif
+
+if !exists('g:symbols_ShortDisplay')
+    let g:symbols_ShortDisplay = 0
+endif
+
+" spaces per indent level in the symbols panel
+if !exists('g:symbols_IndentLength')
+    let g:symbols_IndentLength = 2
 endif
 
 
