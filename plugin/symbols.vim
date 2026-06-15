@@ -12,9 +12,19 @@ let g:loaded_symbols = 0
 
 
 "=================================================
-" symbols window width
-if !exists('g:symbols_SplitWidth')
-    let g:symbols_SplitWidth = 30
+" compact indicators -> narrower default panel (24 instead of 30)
+if !exists('g:symbols_ShortIndicators')
+    let g:symbols_ShortIndicators = 0
+endif
+
+" Panel width is derived from g:symbols_ShortIndicators (24 when on, else 30).
+" Set g:symbols_SplitWidth explicitly to override with an exact width. It is
+" intentionally left unset by default so the width can be re-evaluated on each
+" toggle (letting runtime changes take effect).
+
+" place the panel on the right instead of the left
+if !exists('g:symbols_SplitRight')
+    let g:symbols_SplitRight = 0
 endif
 
 " strip C++ scope qualifiers in symbol names, e.g. ns::Foo::bar -> bar

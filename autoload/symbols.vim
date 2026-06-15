@@ -57,6 +57,16 @@ function! s:getUniqueID() abort
     return s:cntr
 endfunction
 
+" Effective panel width, evaluated live so runtime changes take effect on the
+" next toggle. An explicit g:symbols_SplitWidth wins; otherwise the width is
+" derived from g:symbols_ShortIndicators (24 when on, else 30).
+function! s:splitWidth() abort
+    if exists('g:symbols_SplitWidth')
+        return g:symbols_SplitWidth
+    endif
+    return g:symbols_ShortIndicators == 1 ? 24 : 30
+endfunction
+
 
 "=================================================
 "Base class for panels.
@@ -108,9 +118,9 @@ let s:symbols = s:new(s:panel)
 
 function! s:symbols.Init() abort
     let self.bufname = "symbols_".s:getUniqueID()
-    let self.width = g:symbols_SplitWidth " leave as is, shortdisplay should change in other file
     let self.targetid = -1
     let self.targetBufnr = -1
+    let self.targetTick = -1
 
     let self.symbolstree = [] "output data.
     let self.linedata = []
@@ -211,9 +221,11 @@ function! s:symbols.Show() abort
 
     let self.targetid = w:symbols_id
 
-    " Create symbols window.
-    let cmd = "topleft vertical" .
-            \self.width . ' new ' . self.bufname
+    " Create symbols window. Side and width are evaluated here so runtime option
+    " changes apply on the next toggle.
+    let pos = g:symbols_SplitRight ? "botright" : "topleft"
+    let cmd = pos . " vertical" .
+            \s:splitWidth() . ' new ' . self.bufname
 
     call s:exec("silent keepalt ".cmd)
     call self.SetFocus()
@@ -272,8 +284,10 @@ function! s:symbols.Update() abort
     " disable symbols for chosen buftypes/filetypes
 
     " bt ~ buftype, <empty> ~ normal buffer, acwrite ~ buffer will always be written with BufWriteCmd
+    let curbuf = bufnr('%')
+
     if (&bt != '' && &bt != 'acwrite') || (&modifiable == 0) || (mode() != 'n')
-        if self.targetBufnr == bufnr('%') && self.targetid == w:symbols_id
+        if self.targetBufnr == curbuf && self.targetid == w:symbols_id
             "call s:log("symbols.Update() invalid buffer NOupdate")
             return
         endif
@@ -283,8 +297,18 @@ function! s:symbols.Update() abort
         let emptybuf = 0 "Valid buffer
     endif
 
-    let self.targetBufnr = bufnr('%')
+    " Skip the expensive re-extract + redraw when nothing affecting the symbol
+    " list has changed since the last refresh (mirrors undotree's seq check):
+    " same target buffer, same window, and unchanged buffer content.
+    if !emptybuf && self.targetBufnr == curbuf
+                \ && self.targetid == w:symbols_id
+                \ && self.targetTick == b:changedtick
+        return
+    endif
+
+    let self.targetBufnr = curbuf
     let self.targetid = w:symbols_id
+    let self.targetTick = emptybuf ? -1 : b:changedtick
 
     if emptybuf " Show an empty panel instead of doing nothing.
         let displaylist = []
