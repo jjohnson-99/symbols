@@ -122,11 +122,14 @@ endfunction
 
 " from claude
 function! s:symbols.BindKey() abort "undotree has call in
-    nnoremap <silent><buffer> <CR> :call t:symbols.JumpToSymbol()<CR>
+    " <CR> jumps to the symbol and focuses the target window.
+    nnoremap <silent><buffer> <CR> :call t:symbols.JumpToSymbol(0)<CR>
+    " s previews: moves the target window's cursor but keeps the panel focused.
+    nnoremap <silent><buffer> s    :call t:symbols.JumpToSymbol(1)<CR>
 endfunction
 
 
-function! s:symbols.JumpToSymbol() abort
+function! s:symbols.JumpToSymbol(stay) abort
     let idx = line('.') - 1
     if idx < 0 || idx >= len(self.linedata)
         return
@@ -137,8 +140,10 @@ function! s:symbols.JumpToSymbol() abort
     endif
     call cursor(targetrow, 1)
     call s:exec_silent("norm! zz")
-    "call self.SetFocus()
-    "Figure out how to keep the cursor in target as well
+    " Preview jump: return focus to the panel after moving the target cursor.
+    if a:stay
+        call self.SetFocus()
+    endif
 endfunction
 
 

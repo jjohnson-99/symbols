@@ -62,6 +62,16 @@ local function priority(capture)
   return CAPTURE_PRIORITY[capture] or 0
 end
 
+-- Optionally drop C++ scope qualifiers so out-of-line definitions read as
+-- `bar` instead of `ns::Foo::bar`. Only `::` is stripped, so Lua method names
+-- like `Obj:method` (single colon) are left untouched.
+local function display_name(name)
+  if vim.g.symbols_ShortNames == 0 then
+    return name
+  end
+  return name:match(".*::(.+)$") or name
+end
+
 local function collect_symbols_flat(query, root, bufnr)
     -- Keyed by "row:col" so multiple captures landing on the same name node
     -- collapse into the highest-priority capture.
@@ -92,7 +102,7 @@ local function collect_symbols_flat(query, root, bufnr)
             local existing = by_pos[key]
             if not existing or priority(capture) > priority(existing.capture) then
                 by_pos[key] = {
-                    name    = vim.treesitter.get_node_text(name_node, bufnr),
+                    name    = display_name(vim.treesitter.get_node_text(name_node, bufnr)),
                     capture = capture,                  -- e.g. "type.class", "constructor"
                     range   = get_range(range_node),    -- full definition extent (for nesting)
                     row     = row + 1,

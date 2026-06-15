@@ -17,8 +17,9 @@ if !exists('g:symbols_SplitWidth')
     let g:symbols_SplitWidth = 30
 endif
 
-if !exists('g:symbols_ShortDisplay')
-    let g:symbols_ShortDisplay = 0
+" strip C++ scope qualifiers in symbol names, e.g. ns::Foo::bar -> bar
+if !exists('g:symbols_ShortNames')
+    let g:symbols_ShortNames = 1
 endif
 
 " highlight the line under the cursor in the symbols panel
