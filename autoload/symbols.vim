@@ -11,6 +11,8 @@ if exists('g:autoloaded_symbols')
 endif
 let g:autoloaded_symbols = 0
 
+let s:ns = nvim_create_namespace('symbols')
+
 " load language and language parameters
 
 "[(class_definition
@@ -225,7 +227,7 @@ function! s:symbols.Show() abort
     setlocal nospell
     setlocal nonumber
     setlocal norelativenumber
-    if g:undotree_CursorLine
+    if g:symbols_CursorLine
         setlocal cursorline
     else
         setlocal nocursorline
@@ -279,29 +281,27 @@ function! s:symbols.Update() abort
     let self.targetBufnr = bufnr('%')
     let self.targetid = w:symbols_id
 
-    if emptybuf " Show an empty undo tree instead of do nothing.
-        "let self.rawtree = {'seq_last':0,'entries':[],'time_cur':0,'save_last':0,'synced':1,'save_cur':0,'seq_cur':0}
+    if emptybuf " Show an empty panel instead of doing nothing.
         let displaylist = []
     else
         let displaylist = luaeval('require("backend").get_display_list()')
     endif
-    echom displaylist
 
+    " Build three parallel lists, one entry per displayed line:
+    "   symbolstree - rendered text shown in the panel
+    "   renderdata  - structured item (capture, hl, columns) for highlighting
+    "   linedata    - target-buffer row to jump to
     let self.symbolstree = []
+    let self.renderdata = []
     let self.linedata = []
     for item in displaylist
         call add(self.symbolstree, item.text)
+        call add(self.renderdata, item)
         call add(self.linedata, item.row)
     endfor
 
-    echom displaylist
-    echom self.symbolstree
-    echom self.linedata
-    " drawing logic
     call self.SetFocus()
     call self.Draw()
-    " echom self.targetBufnr " above manages which is target window
-
 endfunction
 
 
@@ -317,10 +317,30 @@ function! s:symbols.Draw() abort
     setlocal modifiable
     " Delete text into blackhole register.
     call s:exec('1,$ d _')
-    call append(0,self.symbolstree)
+    call append(0,self.symbolstree) " keep this
 
     "remove the last empty line
     call s:exec('$d _')
+
+    " clear previous highlights
+    call nvim_buf_clear_namespace(0, s:ns, 0, -1)
+
+    " apply highlights per line (columns are byte offsets supplied by the backend)
+    for idx in range(len(self.renderdata))
+        let item = self.renderdata[idx]
+        let lnum = idx  " 0-based line for the API
+
+        " fold chevron occupies the first cell (3 bytes for the glyph)
+        if item.has_children
+            call nvim_buf_add_highlight(0, s:ns, 'SymbolsChevron', lnum, 0, 3)
+        endif
+
+        " 'class' / 'func' label
+        call nvim_buf_add_highlight(0, s:ns, 'SymbolsLabel', lnum, item.label_col, item.label_col + strlen(item.label))
+
+        " symbol name, highlighted per its treesitter capture
+        call nvim_buf_add_highlight(0, s:ns, item.hl, lnum, item.name_col, -1)
+    endfor
 
     " restore previous cursor position.
     call winrestview(savedview)

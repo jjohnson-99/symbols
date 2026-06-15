@@ -21,6 +21,11 @@ if !exists('g:symbols_ShortDisplay')
     let g:symbols_ShortDisplay = 0
 endif
 
+" highlight the line under the cursor in the symbols panel
+if !exists('g:symbols_CursorLine')
+    let g:symbols_CursorLine = 1
+endif
+
 " spaces per indent level in the symbols panel
 if !exists('g:symbols_IndentLength')
     let g:symbols_IndentLength = 2
