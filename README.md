@@ -54,6 +54,9 @@ let g:symbols_SplitWidth = 30
 " Place the panel on the right instead of the left (default: 0)
 let g:symbols_SplitRight = 0
 
+" Move focus into the panel when toggling it open (default: 0 = stay put)
+let g:symbols_SetFocusWhenToggle = 0
+
 " Highlight the line under the cursor in the panel (default: 1)
 let g:symbols_CursorLine = 1
 
@@ -70,10 +73,16 @@ are re-read when the panel is toggled, so toggle it off and on to apply a change
 
 - Python
 - Lua
+- C
 - C++ (`.cpp` and `.hpp`)
+- Go
+- Rust
+- JavaScript
+- TypeScript
 
 Each language is driven by a Treesitter query (`queries/<lang>/symbols.scm`),
-so adding a language is mostly a matter of writing one.
+so adding a language is mostly a matter of writing one. The relevant Treesitter
+parser must be installed (e.g. via `:TSInstall <lang>`).
 
 ### Roadmap
 

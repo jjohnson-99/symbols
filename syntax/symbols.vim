@@ -31,6 +31,8 @@ highlight default link SymbolsClass        @type
 highlight default link SymbolsStruct       @type
 highlight default link SymbolsEnum         @type
 highlight default link SymbolsUnion        @type
+highlight default link SymbolsInterface    @type
+highlight default link SymbolsType         @type
 highlight default link SymbolsNamespace    @namespace
 highlight default link SymbolsFunction     @function
 highlight default link SymbolsMethod       @function.method

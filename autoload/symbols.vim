@@ -203,9 +203,11 @@ function! s:symbols.Toggle() abort
         augroup END
     else
         call self.Show()
-       " if !g:symbols_SetFocusWhenToggle " need to define globals
-       "     call self.SetTargetFocus()
-       " endif
+        " Show() leaves the cursor in the panel; return to the original window
+        " unless the user wants focus to follow the panel open.
+        if !g:symbols_SetFocusWhenToggle
+            call self.SetTargetFocus()
+        endif
        augroup Symbols
             au!
             exec "au! ".auEvents." * call symbols#SymbolsUpdate()"

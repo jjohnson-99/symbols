@@ -27,6 +27,11 @@ if !exists('g:symbols_SplitRight')
     let g:symbols_SplitRight = 0
 endif
 
+" move focus into the panel when toggling it open (0 = stay in your window)
+if !exists('g:symbols_SetFocusWhenToggle')
+    let g:symbols_SetFocusWhenToggle = 0
+endif
+
 " strip C++ scope qualifiers in symbol names, e.g. ns::Foo::bar -> bar
 if !exists('g:symbols_ShortNames')
     let g:symbols_ShortNames = 1
