@@ -57,6 +57,9 @@ let g:symbols_SplitRight = 0
 " Move focus into the panel when toggling it open (default: 0 = stay put)
 let g:symbols_SetFocusWhenToggle = 0
 
+" Highlight the panel row for the symbol the cursor is currently inside (default: 1)
+let g:symbols_FollowCursor = 1
+
 " Highlight the line under the cursor in the panel (default: 1)
 let g:symbols_CursorLine = 1
 

@@ -81,6 +81,28 @@ local function display_name(name)
   return name:match(".*::(.+)$") or name
 end
 
+-- C/C++ wrap a function's name in declarator nodes (e.g. a pointer or
+-- reference return type) so the name's immediate parent is not the definition.
+-- Climb out of those wrappers to reach the node spanning the whole definition.
+-- Other languages have none of these node types, so this is a no-op there and
+-- enclosing_def() behaves exactly like name_node:parent().
+local DECLARATOR_WRAPPERS = {
+  ["function_declarator"]      = true,
+  ["pointer_declarator"]       = true,
+  ["reference_declarator"]     = true,
+  ["parenthesized_declarator"] = true,
+}
+
+local function enclosing_def(name_node)
+  local node = name_node
+  local parent = node:parent()
+  while parent and DECLARATOR_WRAPPERS[parent:type()] do
+    node = parent
+    parent = node:parent()
+  end
+  return parent or node
+end
+
 local function collect_symbols_flat(query, root, bufnr)
     -- Keyed by "row:col" so multiple captures landing on the same name node
     -- collapse into the highest-priority capture.
@@ -106,7 +128,7 @@ local function collect_symbols_flat(query, root, bufnr)
         if name_node then
             local row, col = name_node:start()
             local key = row .. ":" .. col
-            local range_node = scope_node or name_node:parent()
+            local range_node = scope_node or enclosing_def(name_node)
 
             local existing = by_pos[key]
             if not existing or priority(capture) > priority(existing.capture) then
@@ -208,6 +230,7 @@ local function format_node(node, depth, results, indent_len)
         depth        = depth,
         indent       = depth,
         row          = node.row,
+        end_row      = node.range[3] + 1,  -- 1-indexed last line of the symbol
         has_children = #node.children > 0,
         label_col    = label_col,
         name_col     = name_col,

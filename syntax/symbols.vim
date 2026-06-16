@@ -27,6 +27,7 @@
 
 highlight default link SymbolsChevron      Comment
 highlight default link SymbolsLabel         Keyword
+highlight default link SymbolsCurrent       CursorLine
 highlight default link SymbolsClass        @type
 highlight default link SymbolsStruct       @type
 highlight default link SymbolsEnum         @type

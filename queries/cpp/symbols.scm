@@ -1,10 +1,9 @@
 ; C++ symbols (covers both .cpp and .hpp -- both use the `cpp` parser).
 ;
-; Type specifiers expose `name: (type_identifier)` whose parent is the
-; specifier itself, so they need no @scope. Functions hide their name inside a
-; function_declarator, so the captured name's parent is that declarator rather
-; than the definition -- those patterns tag the full node with @scope to give
-; the backend the right range for nesting.
+; Functions are matched at the function_declarator, so reference/pointer return
+; types -- which wrap the declarator in reference_declarator/pointer_declarator
+; nodes -- are still found. The backend climbs out of those wrappers to the
+; enclosing definition to get the range.
 
 ;; Types ---------------------------------------------------------------------
 (class_specifier
@@ -22,40 +21,26 @@
 (namespace_definition
   name: (namespace_identifier) @namespace)
 
-;; Free functions ------------------------------------------------------------
-; definition: `int foo() { ... }`   declaration/prototype: `int foo();`
-(function_definition
-  declarator: (function_declarator
-    declarator: (identifier) @function)) @scope
+;; Functions & methods -------------------------------------------------------
+; identifier -> free function; field_identifier -> in-class method;
+; qualified_identifier -> out-of-line method (e.g. Foo::method)
+(function_declarator
+  declarator: (identifier) @function)
 
-(declaration
-  declarator: (function_declarator
-    declarator: (identifier) @function)) @scope
+(function_declarator
+  declarator: (field_identifier) @function.method)
 
-;; Methods -------------------------------------------------------------------
-; in-class definition / prototype (field_identifier) and out-of-line
-; definition (qualified_identifier, e.g. `Foo::method`)
-(function_definition
-  declarator: (function_declarator
-    declarator: (field_identifier) @function.method)) @scope
+(function_declarator
+  declarator: (qualified_identifier) @function.method)
 
-(field_declaration
-  declarator: (function_declarator
-    declarator: (field_identifier) @function.method)) @scope
+(function_declarator
+  declarator: (destructor_name) @constructor)
 
-(function_definition
-  declarator: (function_declarator
-    declarator: (qualified_identifier) @function.method)) @scope
-
-;; Constructors / destructors ------------------------------------------------
+;; Constructors --------------------------------------------------------------
 ; A constructor declaration has no return type (!type), which distinguishes it
-; from a free-function prototype. It also matches @function above, but the
-; backend keeps the higher-priority @constructor.
+; from a free-function prototype. It matches the same name as @function above;
+; the backend keeps the higher-priority @constructor.
 (declaration
   !type
   declarator: (function_declarator
-    declarator: (identifier) @constructor)) @scope
-
-(declaration
-  declarator: (function_declarator
-    declarator: (destructor_name) @constructor)) @scope
+    declarator: (identifier) @constructor))

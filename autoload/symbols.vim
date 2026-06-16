@@ -12,6 +12,7 @@ endif
 let g:autoloaded_symbols = 0
 
 let s:ns = nvim_create_namespace('symbols')
+let s:ns_cursor = nvim_create_namespace('symbols_cursor')
 
 " load language and language parameters
 
@@ -157,6 +158,47 @@ function! s:symbols.JumpToSymbol(stay) abort
 endfunction
 
 
+" Index of the innermost symbol whose range contains a:line, or -1.
+" renderdata is in pre-order, so the innermost match is the containing item
+" with the largest start row.
+function! s:symbols.CurrentIndex(line) abort
+    let best = -1
+    for idx in range(len(self.renderdata))
+        let item = self.renderdata[idx]
+        if item.row <= a:line && a:line <= item.end_row
+            if best == -1 || item.row >= self.renderdata[best].row
+                let best = idx
+            endif
+        endif
+    endfor
+    return best
+endfunction
+
+
+" Highlight the panel row matching the cursor's current scope. Cheap: a scan
+" plus one extmark, no re-extract or redraw. Runs on every CursorMoved.
+function! s:symbols.UpdateCursorHL() abort
+    if !g:symbols_FollowCursor || !self.IsVisible()
+        return
+    endif
+    " Only sync from the target buffer the panel is showing, not the panel
+    " itself or some unrelated window.
+    if exists('b:isSymbolsBuffer') || bufnr('%') != self.targetBufnr
+        return
+    endif
+    let panelbuf = bufnr(self.bufname)
+    if panelbuf == -1
+        return
+    endif
+    call nvim_buf_clear_namespace(panelbuf, s:ns_cursor, 0, -1)
+    let idx = self.CurrentIndex(line('.'))
+    if idx >= 0
+        call nvim_buf_set_extmark(panelbuf, s:ns_cursor, idx, 0,
+            \ {'line_hl_group': 'SymbolsCurrent'})
+    endif
+endfunction
+
+
 function! s:symbols.BindAu() abort
     " Auto exit if it's the last window
     augroup Symbols_Main
@@ -208,6 +250,8 @@ function! s:symbols.Toggle() abort
         if !g:symbols_SetFocusWhenToggle
             call self.SetTargetFocus()
         endif
+        " Apply the current-scope highlight right away on open.
+        call self.UpdateCursorHL()
        augroup Symbols
             au!
             exec "au! ".auEvents." * call symbols#SymbolsUpdate()"
@@ -415,6 +459,8 @@ function! symbols#SymbolsUpdate() abort
     if winnr() != thiswinnr
         call s:exec("norm! ".thiswinnr."\<c-w>\<c-w>")
     endif
+    " back in the original window: sync the current-scope highlight (cheap).
+    call t:symbols.UpdateCursorHL()
 endfunction
 
 function! symbols#SymbolsToggle() abort

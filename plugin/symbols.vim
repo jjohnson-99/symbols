@@ -32,6 +32,11 @@ if !exists('g:symbols_SetFocusWhenToggle')
     let g:symbols_SetFocusWhenToggle = 0
 endif
 
+" highlight the panel row for the symbol the cursor is currently inside
+if !exists('g:symbols_FollowCursor')
+    let g:symbols_FollowCursor = 1
+endif
+
 " strip C++ scope qualifiers in symbol names, e.g. ns::Foo::bar -> bar
 if !exists('g:symbols_ShortNames')
     let g:symbols_ShortNames = 1
