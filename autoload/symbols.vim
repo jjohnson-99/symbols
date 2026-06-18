@@ -444,8 +444,17 @@ endfunction
 " User command functions
 " called outside symbols window
 
+" A floating window (harpoon's quick menu, completion popups, ...) is not a
+" valid target: don't let it become the tracked window or trigger focus moves.
+function! s:isFloating() abort
+    return !empty(nvim_win_get_config(0).relative)
+endfunction
+
 function! symbols#SymbolsUpdate() abort
     if !exists('t:symbols')
+        return
+    endif
+    if s:isFloating()
         return
     endif
     if !exists('w:symbols_id')
