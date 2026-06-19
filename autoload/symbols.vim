@@ -205,6 +205,14 @@ function! s:symbols.BindAu() abort
         au!
         au BufEnter <buffer> call s:exitIfLast()
         "au CursorMoved <buffer> call t:symbols.UpdateCursorHL()
+        " The panel's own cursorline marks where the cursor is *within* the
+        " panel; only show it while the panel is focused. Otherwise it lingers
+        " in the source buffer alongside the current-scope highlight. (WinEnter/
+        " WinLeave aren't ignored by s:exec_silent, so focus moves stay in sync.)
+        if g:symbols_CursorLine
+            au WinEnter <buffer> setlocal cursorline
+            au WinLeave <buffer> setlocal nocursorline
+        endif
     augroup end
 endfunction
 
@@ -290,6 +298,8 @@ function! s:symbols.Show() abort
     setlocal nospell
     setlocal nonumber
     setlocal norelativenumber
+    " Show "symbols" in the statusline instead of the unique buffer name.
+    setlocal statusline=symbols
     if g:symbols_CursorLine
         setlocal cursorline
     else
