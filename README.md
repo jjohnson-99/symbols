@@ -51,8 +51,8 @@ let g:symbols_ShortIndicators = 0
 " set explicitly to override with an exact width.
 let g:symbols_SplitWidth = 30
 
-" Place the panel on the right instead of the left (default: 0)
-let g:symbols_SplitRight = 0
+" Place the panel on the right instead of the left (default: 1, 0 places the panel to the left)
+let g:symbols_SplitRight = 1
 
 " Move focus into the panel when toggling it open (default: 0 = stay put)
 let g:symbols_SetFocusWhenToggle = 0

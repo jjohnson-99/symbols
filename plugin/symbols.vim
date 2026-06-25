@@ -24,7 +24,7 @@ endif
 
 " place the panel on the right instead of the left
 if !exists('g:symbols_SplitRight')
-    let g:symbols_SplitRight = 0
+    let g:symbols_SplitRight = 1
 endif
 
 " move focus into the panel when toggling it open (0 = stay in your window)
